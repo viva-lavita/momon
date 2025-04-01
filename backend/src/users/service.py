@@ -3,7 +3,7 @@ from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.utils import get_password_hash
-from src.models import get_by_name, get_list
+from src.models import get_list
 from src.users.models import User, UserCRUDModel
 from src.users.schemas import UserCreate, UserUpdate
 
@@ -34,7 +34,9 @@ class UserCRUD:
             password = user_data["password"]
             hashed_password = get_password_hash(password)
             extra_data["hashed_password"] = hashed_password
-        await db_user.sqlmodel_update(user_data, update=extra_data)
+        db_user.sqlmodel_update(
+            user_data, update=extra_data
+        )  # TODO: тут await вообще нужен?
         session.add(db_user)
         await session.commit()
         await session.refresh(db_user)
@@ -46,11 +48,16 @@ class UserCRUD:
 
     @classmethod
     async def get_by_name(cls, session: AsyncSession, name: str) -> User:
-        return await get_by_name(session, User, name)
+        query = select(User).where(User.name == name)
+        return await get_list(session, query)
 
     @classmethod
     async def get_all(cls, session: AsyncSession) -> list[User]:
         return await get_list(session, select(User))
+
+    @classmethod
+    async def get_by_email(cls, session: AsyncSession, email: str) -> User:
+        return await cls.crud.get(session, "email", email)
 
     @classmethod
     async def delete(cls, session: AsyncSession, user_id: str) -> None:

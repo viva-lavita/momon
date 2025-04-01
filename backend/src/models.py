@@ -1,4 +1,4 @@
-from typing import Any, Optional, Type, TypeVar
+from typing import Any, Type, TypeVar
 
 from sqlmodel import SQLModel, delete, func, select, update
 from sqlalchemy.exc import NoResultFound
@@ -56,7 +56,7 @@ async def get_list(session: AsyncSession, query: Select) -> list[Table]:
     return (await session.execute(query)).unique().scalars().all()
 
 
-async def exactly_one(session: AsyncSession, query) -> Optional[Table]:
+async def exactly_one(session: AsyncSession, query) -> Table | None:
     try:
         return (await session.execute(query)).unique().scalars().one()
     except NoResultFound:
@@ -68,15 +68,4 @@ async def get_total_rows(session: AsyncSession, query: Select) -> int:
         (await session.execute(select(func.count()).select_from(query.subquery())))
         .scalars()
         .one()
-    )
-
-
-async def get_by_name(
-    session: AsyncSession, table: Type[Table], name: str
-) -> Optional[Table]:
-    return (
-        (await session.execute(select(table).where(table.name == name)))
-        .unique()
-        .scalars()
-        .first()
     )

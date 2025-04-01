@@ -5,8 +5,6 @@ from src.auth.router import router as auth_router
 
 
 router = APIRouter(
-    prefix="/api",
-    tags=["api"],
     responses={404: {"description": "Not found=)"}},
 )
 
