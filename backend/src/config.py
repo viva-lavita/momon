@@ -2,7 +2,7 @@
 # TODO; добавить отключение документации api на проде
 
 import secrets
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from pydantic import (
     AnyUrl,
@@ -14,6 +14,8 @@ from pydantic import (
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.constants import Environment
+
 
 def parse_cors(v: Any) -> list[str] | str:
     """Parse a string or list of strings into a list of strings."""
@@ -24,22 +26,7 @@ def parse_cors(v: Any) -> list[str] | str:
     raise ValueError(v)
 
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file="../.env",
-        env_file_encoding="utf-8",
-        env_ignore_empty=True,
-        extra="ignore",
-    )
-    API_V1_STR: str = "/api/v1"
-    SECRET_KEY: str = secrets.token_urlsafe(32)
-    # 60 minutes * 24 hours * 8 days = 8 days
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
-    FRONTEND_HOST: str = "http://localhost:5173"
-    ENVIRONMENT: Literal["local", "staging", "production"] = "local"
-    FIRST_SUPERUSER: EmailStr
-    FIRST_SUPERUSER_PASSWORD: str
-
+class PostgresDBSettings(BaseSettings):
     PROJECT_NAME: str
     POSTGRES_SERVER: str
     POSTGRES_PORT: int = 5432
@@ -62,6 +49,12 @@ class Settings(BaseSettings):
             )
         )
 
+
+class Settings(BaseSettings):
+    # 60 minutes * 24 hours * 8 days = 8 days
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
+    FIRST_SUPERUSER: EmailStr
+    FIRST_SUPERUSER_PASSWORD: str
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)
     ] = []
@@ -74,4 +67,40 @@ class Settings(BaseSettings):
         ]
 
 
-settings = Settings()  # type: ignore
+settings = [
+    PostgresDBSettings,
+    Settings,
+]
+
+
+class AppSettings(*settings):
+    APP_VERSION: str = "1"
+    SECRET_KEY: str = secrets.token_urlsafe(32)
+    FRONTEND_HOST: str = "http://localhost:5173"
+    ENVIRONMENT: Environment = Environment.LOCAL
+    model_config = SettingsConfigDict(
+        env_file="../.env",
+        env_file_encoding="utf-8",
+        env_ignore_empty=True,
+        extra="ignore",
+    )
+
+
+settings = AppSettings()
+
+app_configs = {}
+
+if settings.ENVIRONMENT.is_deployed:
+    app_configs["root_path"] = f"/api/v{settings.APP_VERSION}"
+
+if not settings.ENVIRONMENT.is_debug:
+    app_configs["debug"] = False
+    app_configs["openapi_url"] = None
+    app_configs["docs_url"] = None
+    app_configs["redoc_url"] = None
+
+if settings.ENVIRONMENT.is_debug:
+    app_configs["debug"] = True
+    app_configs["openapi_url"] = "/openapi.json"
+    app_configs["docs_url"] = "/docs"
+    app_configs["redoc_url"] = "/redoc"
