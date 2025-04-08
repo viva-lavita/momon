@@ -15,7 +15,7 @@ def custom_generate_unique_id(route: APIRoute) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    await init()
+    # добавить редис, селери и пр.
     yield
 
 
@@ -23,6 +23,7 @@ app = FastAPI(
     **app_configs,
     title=settings.PROJECT_NAME,
     generate_unique_id_function=custom_generate_unique_id,
+    lifespan=lifespan,
 )
 
 if settings.all_cors_origins:
@@ -47,6 +48,7 @@ if __name__ == "__main__":  # для отладки локально вне ко
     if settings.ENVIRONMENT.is_debug:
         import uvicorn
 
+        init()
         uvicorn.run(
             app="main:app",
             host="localhost",

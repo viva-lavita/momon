@@ -47,13 +47,12 @@ class UserCRUD:
         return await cls.crud.get(session, "id", user_id)
 
     @classmethod
-    async def get_by_name(cls, session: AsyncSession, name: str) -> User:
-        query = select(User).where(User.name == name)
-        return await get_list(session, query)
+    async def get_by_username(cls, session: AsyncSession, username: str) -> User:
+        return await cls.crud.get(session, "username", username)  # уникальное поле
 
     @classmethod
     async def get_all(cls, session: AsyncSession) -> list[User]:
-        return await get_list(session, select(User))
+        return await get_list(session, select(User).where(User.is_active))
 
     @classmethod
     async def get_by_email(cls, session: AsyncSession, email: str) -> User:

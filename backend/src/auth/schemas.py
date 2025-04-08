@@ -1,14 +1,13 @@
 from sqlmodel import Field, SQLModel
 
 
-# JWT
 class Token(SQLModel):
     access_token: str
-    token_type: str = "bearer"
+    token_type: str
 
 
-class TokenPayload(SQLModel):
-    sub: str | None = None
+class TokenData(SQLModel):
+    username: str | None = None
 
 
 class NewPassword(SQLModel):
