@@ -19,6 +19,7 @@ class UserInDB(UserBase):
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=40)
+    role_id: uuid.UUID
 
 
 class UserRegister(SQLModel):
@@ -55,3 +56,16 @@ class UsersPublic(SQLModel):
 class UpdatePassword(SQLModel):
     current_password: str = Field(min_length=8, max_length=40)
     new_password: str = Field(min_length=8, max_length=40)
+
+
+class RoleBase(SQLModel):
+    id: uuid.UUID
+    name: str
+
+
+class RoleInDB(RoleBase):
+    users: list[UserPublic]
+
+
+class RoleCreate(SQLModel):
+    name: str

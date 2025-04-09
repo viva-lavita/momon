@@ -1,11 +1,18 @@
+import logging
 from typing import Any
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.config import settings
 from src.auth.utils import get_password_hash
 from src.models import get_list
-from src.users.models import User, UserCRUDModel
-from src.users.schemas import UserCreate, UserUpdate
+from src.users.constants import UserRolesEnum
+from src.users.exceptions import UserAlreadyExists
+from src.users.models import Role, User, UserCRUDModel, RoleCRUDModel
+from src.users.schemas import RoleCreate, RoleBase, UserCreate, UserUpdate
+
+
+logger = logging.getLogger(__name__)
 
 
 class UserCRUD:
@@ -13,7 +20,15 @@ class UserCRUD:
 
     @classmethod
     async def create(cls, session: AsyncSession, user_create: UserCreate) -> User:
-        db_obj = await User.model_validate(
+        if await cls.crud.get(session, "email", user_create.email):
+            raise UserAlreadyExists(
+                f"User with email {user_create.email} already exists"
+            )
+        if await cls.crud.get(session, "username", user_create.username):
+            raise UserAlreadyExists(
+                f"User with username {user_create.username} already exists"
+            )
+        db_obj = User.model_validate(
             user_create,
             update={"hashed_password": get_password_hash(user_create.password)},
         )
@@ -43,8 +58,8 @@ class UserCRUD:
         return db_user
 
     @classmethod
-    async def get(cls, session: AsyncSession, user_id: str) -> User:
-        return await cls.crud.get(session, "id", user_id)
+    async def get(cls, session: AsyncSession, field: str, value: Any) -> User:
+        return await cls.crud.get(session, field, value)
 
     @classmethod
     async def get_by_username(cls, session: AsyncSession, username: str) -> User:
@@ -61,3 +76,53 @@ class UserCRUD:
     @classmethod
     async def delete(cls, session: AsyncSession, user_id: str) -> None:
         await cls.crud.delete(session, "id", user_id)
+
+
+class RoleCRUD:
+    crud = RoleCRUDModel
+
+    @classmethod
+    async def get(cls, session: AsyncSession, field: str, value: Any) -> User:
+        return await cls.crud.get(session, field, value)
+
+    @classmethod
+    async def get_all(cls, session: AsyncSession) -> list[User]:
+        return await get_list(session, select(Role))
+
+    @classmethod
+    async def delete(cls, session: AsyncSession, role_id: str) -> None:
+        await cls.crud.delete(session, "id", role_id)
+
+    @classmethod
+    async def get_or_create(
+        cls, session: AsyncSession, role_create: RoleCreate
+    ) -> RoleBase:
+        role = await cls.crud.get(session, "name", role_create.name)
+        if role:
+            return role
+        return await cls.crud.create(session, **role_create.model_dump())
+
+
+async def create_superuser(session: AsyncSession):  # наглядно get_or_create и create
+    role_user = await RoleCRUD.get_or_create(
+        session, RoleCreate(name=UserRolesEnum.user)
+    )
+    logger.info(f"User role created: {role_user}")
+    role_admin = await RoleCRUD.get_or_create(
+        session, RoleCreate(name=UserRolesEnum.admin)
+    )
+    logger.info(f"Admin role created: {role_admin}")
+    try:
+        user = await UserCRUD.create(
+            session,
+            UserCreate(
+                username=settings.FIRST_SUPERUSER,
+                email=settings.FIRST_SUPERUSER_EMAIL,
+                password=settings.FIRST_SUPERUSER_PASSWORD,
+                role_id=role_user.id,
+            ),
+        )
+        logger.info(f"Superuser created: {user}")
+    except UserAlreadyExists:
+        logger.info("Superuser already exists")
+        pass

@@ -22,6 +22,10 @@ class Environment(str, Enum):
     def is_deployed(self) -> bool:
         return self not in (self.TESTING)
 
+    @property
+    def is_local(self) -> bool:
+        return self == self.LOCAL
+
 
 def new_uuid() -> str:
     return str(uuid4())

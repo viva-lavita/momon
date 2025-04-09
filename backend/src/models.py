@@ -5,8 +5,6 @@ from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 
-from src.exceptions import ObjectNotFoundError
-
 
 Table = TypeVar("Table", bound=SQLModel)
 
@@ -60,7 +58,7 @@ async def exactly_one(session: AsyncSession, query) -> Table | None:
     try:
         return (await session.execute(query)).unique().scalars().one()
     except NoResultFound:
-        raise ObjectNotFoundError
+        return None
 
 
 async def get_total_rows(session: AsyncSession, query: Select) -> int:
