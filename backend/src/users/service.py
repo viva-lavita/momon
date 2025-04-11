@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
 from src.auth.utils import get_password_hash
+from src.db import SessionDep
 from src.models import get_list
 from src.users.constants import UserRolesEnum
 from src.users.exceptions import UserAlreadyExists
@@ -49,9 +50,7 @@ class UserCRUD:
             password = user_data["password"]
             hashed_password = get_password_hash(password)
             extra_data["hashed_password"] = hashed_password
-        db_user.sqlmodel_update(
-            user_data, update=extra_data
-        )  # TODO: тут await вообще нужен?
+        db_user.sqlmodel_update(user_data, update=extra_data)
         session.add(db_user)
         await session.commit()
         await session.refresh(db_user)
@@ -66,8 +65,12 @@ class UserCRUD:
         return await cls.crud.get(session, "username", username)  # уникальное поле
 
     @classmethod
-    async def get_all(cls, session: AsyncSession) -> list[User]:
-        return await get_list(session, select(User).where(User.is_active))
+    async def get_all(
+        cls, session: AsyncSession, skip: int = 0, limit: int = 100
+    ) -> list[User]:
+        return await get_list(
+            session, select(User).where(User.is_active).offset(skip).limit(limit)
+        )
 
     @classmethod
     async def get_by_email(cls, session: AsyncSession, email: str) -> User:
@@ -120,9 +123,16 @@ async def create_superuser(session: AsyncSession):  # наглядно get_or_cr
                 email=settings.FIRST_SUPERUSER_EMAIL,
                 password=settings.FIRST_SUPERUSER_PASSWORD,
                 role_id=role_user.id,
+                is_superuser=True,
             ),
         )
         logger.info(f"Superuser created: {user}")
     except UserAlreadyExists:
         logger.info("Superuser already exists")
         pass
+
+
+async def get_user(session: SessionDep, username: str) -> User:
+    user = await UserCRUD.get_by_username(session, username)
+    if user:
+        return user

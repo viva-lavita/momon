@@ -17,18 +17,6 @@ class User(UserBase, AsyncAttrs, table=True):
     role: "Role" = Relationship(
         back_populates="users", sa_relationship_kwargs={"lazy": "selectin"}
     )
-    # items: list["Item"] = Relationship(  # пример реляции
-    #     back_populates="owner",
-    #     cascade_delete=True
-    # )
-
-
-# class Item(ItemBase, table=True):
-#     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)  # пример реляции
-#     owner_id: uuid.UUID = Field(
-#         foreign_key="user.id", nullable=False, ondelete="CASCADE"
-#     )
-#     owner: User | None = Relationship(back_populates="items")
 
 
 class UserCRUDModel(CRUDBase):
