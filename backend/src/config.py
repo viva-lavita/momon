@@ -1,8 +1,5 @@
-# TODO; с усложнением разбить настройки по назначениям (бд, тест, эмейл и тд)
-# TODO; добавить отключение документации api на проде
-
 import secrets
-from typing import Annotated, Any
+from typing import Annotated, Any, Self
 
 from pydantic import (
     AnyUrl,
@@ -10,6 +7,7 @@ from pydantic import (
     EmailStr,
     PostgresDsn,
     computed_field,
+    model_validator,
 )
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -27,7 +25,6 @@ def parse_cors(v: Any) -> list[str] | str:
 
 
 class PostgresDBSettings(BaseSettings):
-    PROJECT_NAME: str
     POSTGRES_SERVER: str
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str
@@ -50,6 +47,33 @@ class PostgresDBSettings(BaseSettings):
         )
 
 
+class EmailConfig(BaseSettings):
+    PROJECT_NAME: str
+    SMTP_TLS: bool = True
+    SMTP_SSL: bool = False
+    SMTP_PORT: int = 587
+    SMTP_HOST: str | None = None
+    SMTP_USER: str | None = None
+    SMTP_PASSWORD: str | None = None
+    EMAILS_FROM_EMAIL: EmailStr | None = None
+    EMAILS_FROM_NAME: str | None = None
+
+    @model_validator(mode="after")
+    def _set_default_emails_from(self) -> Self:
+        if not self.EMAILS_FROM_NAME:
+            self.EMAILS_FROM_NAME = self.PROJECT_NAME
+        return self
+
+    EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 48
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def emails_enabled(self) -> bool:
+        return bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
+
+    EMAIL_TEST_USER: EmailStr = "test@example.com"
+
+
 class Settings(BaseSettings):
     # 60 minutes * 24 hours * 8 days = 8 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
@@ -57,6 +81,26 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER: str
     FIRST_SUPERUSER_EMAIL: EmailStr
     FIRST_SUPERUSER_PASSWORD: str
+
+
+settings = [
+    PostgresDBSettings,
+    EmailConfig,
+    Settings,
+]
+
+
+class AppSettings(*settings):
+    APP_VERSION: str = "1"
+    SECRET_KEY: str = secrets.token_urlsafe(32)
+    ENVIRONMENT: Environment = Environment.LOCAL
+    model_config = SettingsConfigDict(
+        env_file="../.env",
+        env_file_encoding="utf-8",
+        env_ignore_empty=True,
+        extra="ignore",
+    )
+    FRONTEND_HOST: str = "http://localhost:5173"
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyUrl] | str, BeforeValidator(parse_cors)
     ] = []
@@ -69,25 +113,6 @@ class Settings(BaseSettings):
         ]
 
 
-settings = [
-    PostgresDBSettings,
-    Settings,
-]
-
-
-class AppSettings(*settings):
-    APP_VERSION: str = "1"
-    SECRET_KEY: str = secrets.token_urlsafe(32)
-    FRONTEND_HOST: str = "http://localhost:5173"
-    ENVIRONMENT: Environment = Environment.LOCAL
-    model_config = SettingsConfigDict(
-        env_file="../.env",
-        env_file_encoding="utf-8",
-        env_ignore_empty=True,
-        extra="ignore",
-    )
-
-
 settings = AppSettings()
 
 app_configs = {}
@@ -95,7 +120,7 @@ app_configs = {}
 if settings.ENVIRONMENT.is_deployed:
     app_configs["root_path"] = f"/api/v{settings.APP_VERSION}"
 
-if not settings.ENVIRONMENT.is_debug:
+if not settings.ENVIRONMENT.is_debug:  # если прод, отключаем документацию
     app_configs["debug"] = False
     app_configs["openapi_url"] = None
     app_configs["docs_url"] = None

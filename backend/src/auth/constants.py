@@ -16,3 +16,7 @@ INCORRECT_USERNAME_OR_PASSWORD = (
     "Incorrect username or password, user not found."  # pragma: allowlist secret
 )
 NOT_VALID_CREDENTIALS = "Could not validate credentials"
+USER_NOT_FOUND = "The user with this email does not exist in the system."
+PASSWORD_RECOVERY_EMAIL_SENT = (
+    "Password recovery email sent"  # pragma: allowlist secret
+)
