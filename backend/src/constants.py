@@ -37,3 +37,6 @@ def get_base_dir() -> str:
 
 def get_project_root() -> str:
     return Path(__file__).resolve().parent.parent
+
+
+EMAILS_DISABLED = "Emails are disabled"

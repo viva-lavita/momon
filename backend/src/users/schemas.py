@@ -19,7 +19,7 @@ class UserInDB(UserBase):
 
 class UserCreate(UserBase):
     password: str = Field(min_length=8, max_length=40)
-    role_id: uuid.UUID
+    role_id: uuid.UUID | None = Field(foreign_key="role.id", default=None)
 
 
 class UserRegister(SQLModel):

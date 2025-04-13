@@ -20,3 +20,7 @@ USER_NOT_FOUND = "The user with this email does not exist in the system."
 PASSWORD_RECOVERY_EMAIL_SENT = (
     "Password recovery email sent"  # pragma: allowlist secret
 )
+INVALID_TOKEN = "Invalid token"
+PASSWORD_UPDATED_SUCCESSFULLY = (
+    "Password updated successfully"  # pragma: allowlist secret
+)

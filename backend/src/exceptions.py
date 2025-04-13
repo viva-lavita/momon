@@ -1,3 +1,6 @@
+from fastapi import status
+
+
 class CRUDError(Exception):
     pass
 
@@ -18,3 +21,8 @@ class HTTPResponseException(Exception):
             "detail": self.detail,
             "headers": self.headers,
         }
+
+
+class EmailsDisabledException(HTTPResponseException):
+    def __init__(self, detail=None, headers=None):
+        super().__init__(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -54,8 +54,8 @@ async def test_token(current_user: CurrentUser, token: TokenDep) -> Any:
     return current_user
 
 
-@router.post("/password-recovery/{email}")
-async def recover_password(email: str, session: SessionDep) -> Message:
+@router.post("/password-recovery/{email}", response_model=Message)
+async def recover_password(email: str, session: SessionDep):
     """
     Password Recovery
     """
@@ -82,7 +82,7 @@ async def reset_password(session: SessionDep, body: NewPassword) -> Message:
     """
     username = verify_password_reset_token(token=body.token)
     if not username:
-        raise HTTPException(status_code=400, detail="Invalid token")
+        raise HTTPException(**exceptions.InvalidTokenException().dict())
     user = await UserCRUD.get_by_username(session=session, username=username)
     if not user:
         raise HTTPException(**exceptions.UserNotFoundException().dict())
@@ -96,7 +96,7 @@ async def reset_password(session: SessionDep, body: NewPassword) -> Message:
     user.hashed_password = hashed_password
     session.add(user)
     await session.commit()
-    return Message(message="Password updated successfully")
+    return Message(message=constants.PASSWORD_UPDATED_SUCCESSFULLY)
 
 
 @router.post(

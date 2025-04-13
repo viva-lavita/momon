@@ -27,3 +27,8 @@ class NotValidCredentialsException(AuthUnauthorizedException):
 class UserNotFoundException(HTTPResponseException):
     def __init__(self):
         super().__init__(status.HTTP_404_NOT_FOUND, detail=constants.USER_NOT_FOUND)
+
+
+class InvalidTokenException(HTTPResponseException):
+    def __init__(self):
+        super().__init__(status.HTTP_400_BAD_REQUEST, detail=constants.INVALID_TOKEN)

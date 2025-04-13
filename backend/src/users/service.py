@@ -10,7 +10,7 @@ from src.models import get_list
 from src.users.constants import UserRolesEnum
 from src.users.exceptions import UserAlreadyExists
 from src.users.models import Role, User, UserCRUDModel, RoleCRUDModel
-from src.users.schemas import RoleCreate, RoleBase, UserCreate, UserUpdate
+from src.users.schemas import RoleCreate, RoleBase, UserCreate, UserUpdateMe
 
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,10 @@ class UserCRUD:
             raise UserAlreadyExists(
                 f"User with username {user_create.username} already exists"
             )
+        if user_create.role_id is None:
+            user_create.role_id = (
+                await RoleCRUD.get(session, "name", UserRolesEnum.user.name)
+            ).id
         db_obj = User.model_validate(
             user_create,
             update={"hashed_password": get_password_hash(user_create.password)},
@@ -39,8 +43,8 @@ class UserCRUD:
         return db_obj
 
     @classmethod
-    async def update_user(
-        *, session: AsyncSession, db_user: User, user_in: UserUpdate
+    async def update(
+        session: AsyncSession, db_user: User, user_in: UserUpdateMe
     ) -> Any:
         user_data = user_in.model_dump(
             exclude_unset=True
@@ -122,7 +126,7 @@ async def create_superuser(session: AsyncSession):  # наглядно get_or_cr
                 username=settings.FIRST_SUPERUSER,
                 email=settings.FIRST_SUPERUSER_EMAIL,
                 password=settings.FIRST_SUPERUSER_PASSWORD,
-                role_id=role_user.id,
+                role_id=role_admin.id,
                 is_superuser=True,
             ),
         )
