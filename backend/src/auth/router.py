@@ -9,7 +9,7 @@ from src.auth import constants, exceptions
 from src.auth.dependencies import TokenDep
 from src.db import SessionDep
 from src.schemas import Message
-from src.auth.utils import (
+from src.auth.service import (
     create_access_token,
     generate_password_reset_token,
     generate_reset_password_email,

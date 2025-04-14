@@ -2,9 +2,12 @@ import logging
 from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 
-from src.auth.utils import generate_new_account_email
+from src.auth.service import get_password_hash
+from src.auth.service import generate_new_account_email, verify_password
 from src.constants import EMAILS_DISABLED
 from src.exceptions import EmailsDisabledException
+from src.models import Message
+from src.users import constants
 from src.users.dependencies import (
     CurrentUser,
     get_current_active_superuser,
@@ -12,8 +15,19 @@ from src.users.dependencies import (
 )
 from src.config import settings
 from src.db import SessionDep
-from src.users.exceptions import UserAlreadyExists, UserAlreadyExistsException
-from src.users.schemas import UserCreate, UserPublic, UserUpdateMe, UsersPublic
+from src.users.exceptions import (
+    IncorrectPasswordException,
+    InvalidPasswordException,
+    UserAlreadyExists,
+    UserAlreadyExistsException,
+)
+from src.users.schemas import (
+    UpdatePassword,
+    UserCreate,
+    UserPublic,
+    UserUpdateMe,
+    UsersPublic,
+)
 from src.users.service import UserCRUD
 from src.utils import send_email
 
@@ -78,9 +92,7 @@ async def create_user(user: UserCreate, session: SessionDep) -> Any:
 
 @router.patch("/me", response_model=UserPublic)
 async def update_user_me(
-    current_user: CurrentUser,
-    user_update: UserUpdateMe,
-    session: SessionDep,
+    current_user: CurrentUser, user_update: UserUpdateMe, session: SessionDep
 ) -> Any:
     if user_update.email:
         if await UserCRUD.get_by_email(session, user_update.email):
@@ -88,4 +100,25 @@ async def update_user_me(
     if user_update.username:
         if await UserCRUD.get_by_username(session, user_update.username):
             raise HTTPException(**UserAlreadyExistsException().dict())
-    return await UserCRUD.update(session, current_user, user_update)
+    return await UserCRUD.update(
+        db_user=current_user, user_in=user_update, session=session
+    )
+
+
+@router.patch("/me/password", response_model=Message)
+async def update_password_me(
+    *, session: SessionDep, body: UpdatePassword, current_user: CurrentUser
+) -> Any:
+    """
+    Update own password.
+    """
+    if not verify_password(body.current_password, current_user.hashed_password):
+        raise HTTPException(**InvalidPasswordException().dict())
+    if body.current_password == body.new_password:
+        raise HTTPException(**IncorrectPasswordException().dict())
+
+    hashed_password = get_password_hash(password=body.new_password)
+    current_user.hashed_password = hashed_password
+    session.add(current_user)
+    await session.commit()
+    return Message(message=constants.PASSWORD_UPDATED_SUCCESSFULLY)

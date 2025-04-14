@@ -4,7 +4,7 @@ from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import settings
-from src.auth.utils import get_password_hash
+from src.auth.service import get_password_hash
 from src.db import SessionDep
 from src.models import get_list
 from src.users.constants import UserRolesEnum
@@ -44,7 +44,7 @@ class UserCRUD:
 
     @classmethod
     async def update(
-        session: AsyncSession, db_user: User, user_in: UserUpdateMe
+        cls, db_user: User, user_in: UserUpdateMe, session: AsyncSession
     ) -> Any:
         user_data = user_in.model_dump(
             exclude_unset=True

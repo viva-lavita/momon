@@ -67,3 +67,8 @@ async def get_total_rows(session: AsyncSession, query: Select) -> int:
         .scalars()
         .one()
     )
+
+
+# Generic message
+class Message(SQLModel):
+    message: str
