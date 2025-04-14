@@ -5,7 +5,9 @@ from src.auth.router import router as auth_router
 
 
 router = APIRouter(
-    responses={404: {"description": "Not found=)"}},
+    responses={
+        403: {"description": "The user doesn't have enough privileges"},  # пример
+    },
 )
 
 router.include_router(users_router)

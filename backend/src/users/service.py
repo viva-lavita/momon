@@ -8,9 +8,16 @@ from src.auth.service import get_password_hash
 from src.db import SessionDep
 from src.models import get_list
 from src.users.constants import UserRolesEnum
-from src.users.exceptions import UserAlreadyExists
+from src.users.exceptions import RoleNotFound, UserAlreadyExists
 from src.users.models import Role, User, UserCRUDModel, RoleCRUDModel
-from src.users.schemas import RoleCreate, RoleBase, UserCreate, UserUpdateMe
+from src.users.schemas import (
+    RoleCreate,
+    RoleBase,
+    UserCreate,
+    UserRegister,
+    UserUpdate,
+    UserUpdateMe,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -20,15 +27,24 @@ class UserCRUD:
     crud = UserCRUDModel
 
     @classmethod
-    async def create(cls, session: AsyncSession, user_create: UserCreate) -> User:
+    async def create(
+        cls, session: AsyncSession, user_create: UserCreate | UserRegister
+    ) -> User:
         if await cls.crud.get(session, "email", user_create.email):
             raise UserAlreadyExists(
-                f"User with email {user_create.email} already exists"
+                f"User with email {user_create.email} already exists"  # TODO: залогировать все подобные?
             )
         if await cls.crud.get(session, "username", user_create.username):
             raise UserAlreadyExists(
                 f"User with username {user_create.username} already exists"
             )
+        if getattr(user_create, "role_id", None) is None:
+            user_create = UserCreate.model_validate(
+                user_create, update={"role_id": None}
+            )
+        if user_create.role_id is not None:
+            if await RoleCRUD.get(session, "id", user_create.role_id) is None:
+                raise RoleNotFound(f"Role with id {user_create.role_id} not found")
         if user_create.role_id is None:
             user_create.role_id = (
                 await RoleCRUD.get(session, "name", UserRolesEnum.user.name)
@@ -44,16 +60,31 @@ class UserCRUD:
 
     @classmethod
     async def update(
-        cls, db_user: User, user_in: UserUpdateMe, session: AsyncSession
+        cls, db_user: User, user_in: UserUpdateMe | UserUpdate, session: AsyncSession
     ) -> Any:
-        user_data = user_in.model_dump(
-            exclude_unset=True
-        )  # исключаем поля, которых нет в схеме
+        user_data = user_in.model_dump(exclude_unset=True)
         extra_data = {}
         if "password" in user_data:  # хэшируем пароль
             password = user_data["password"]
             hashed_password = get_password_hash(password)
             extra_data["hashed_password"] = hashed_password
+        if "role_id" in user_data and user_data["role_id"] != db_user.role_id:
+            role = await RoleCRUD.get(session, "id", user_data["role_id"])
+            if role is None:
+                raise RoleNotFound(f"Role with id {user_data['role_id']} not found")
+            extra_data["role_id"] = user_data["role_id"]
+        if "email" in user_data and user_data["email"] != db_user.email:
+            if await cls.crud.get(session, "email", user_data["email"]):
+                raise UserAlreadyExists(
+                    f"User with email {user_data['email']} already exists"
+                )
+            extra_data["email"] = user_data["email"]
+        if "username" in user_data and user_data["username"] != db_user.username:
+            if await cls.crud.get(session, "username", user_data["username"]):
+                raise UserAlreadyExists(
+                    f"User with username {user_data['username']} already exists"
+                )
+            extra_data["username"] = user_data["username"]
         db_user.sqlmodel_update(user_data, update=extra_data)
         session.add(db_user)
         await session.commit()
@@ -89,7 +120,7 @@ class RoleCRUD:
     crud = RoleCRUDModel
 
     @classmethod
-    async def get(cls, session: AsyncSession, field: str, value: Any) -> User:
+    async def get(cls, session: AsyncSession, field: str, value: Any) -> User | None:
         return await cls.crud.get(session, field, value)
 
     @classmethod

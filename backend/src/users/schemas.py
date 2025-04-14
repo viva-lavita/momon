@@ -24,7 +24,7 @@ class UserCreate(UserBase):
 
 class UserRegister(SQLModel):
     username: str = Field(unique=True, index=True, max_length=255)
-    email: EmailStr = Field(max_length=255)
+    email: EmailStr = Field(max_length=255, unique=True)
     password: str = Field(min_length=8, max_length=40)
     full_name: str | None = Field(default=None, max_length=255)
 
@@ -35,6 +35,7 @@ class UserUpdate(UserBase):
     full_name: str | None = Field(default=None, max_length=255)
     email: EmailStr | None = Field(default=None, max_length=255)
     password: str | None = Field(default=None, min_length=8, max_length=40)
+    role_id: uuid.UUID | None = Field(foreign_key="role.id", default=None)
 
 
 class UserUpdateMe(SQLModel):

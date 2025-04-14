@@ -24,7 +24,7 @@ class CRUDBase:
         return instance
 
     @classmethod
-    async def get(cls, session: AsyncSession, field: str, value: Any) -> Table:
+    async def get(cls, session: AsyncSession, field: str, value: Any) -> Table | None:
         query = select(cls.table).where(getattr(cls.table, field) == value)
         return await exactly_one(session, query)
 

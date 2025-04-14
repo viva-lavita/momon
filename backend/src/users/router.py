@@ -1,13 +1,16 @@
 import logging
 from typing import Annotated, Any
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
+from src.auth.exceptions import UserNotFoundException
 from src.auth.service import get_password_hash
 from src.auth.service import generate_new_account_email, verify_password
 from src.constants import EMAILS_DISABLED
 from src.exceptions import EmailsDisabledException
 from src.models import Message
 from src.users import constants
+from src.users import exceptions
 from src.users.dependencies import (
     CurrentUser,
     get_current_active_superuser,
@@ -18,6 +21,8 @@ from src.db import SessionDep
 from src.users.exceptions import (
     IncorrectPasswordException,
     InvalidPasswordException,
+    RoleNotFound,
+    RoleNotFoundException,
     UserAlreadyExists,
     UserAlreadyExistsException,
 )
@@ -25,6 +30,7 @@ from src.users.schemas import (
     UpdatePassword,
     UserCreate,
     UserPublic,
+    UserRegister,
     UserUpdateMe,
     UsersPublic,
 )
@@ -39,10 +45,14 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get(
     "/",
     response_model=UsersPublic,
-    dependencies=[Depends(get_current_active_superuser)],
+    dependencies=[
+        Depends(get_current_active_superuser)
+    ],  # можно так, а можно через параметры
 )
 async def get_users(
-    session: SessionDep, skip: int = 0, limit: int = 100
+    session: SessionDep,
+    skip: int = 0,
+    limit: int = 100,  # current_superuser: CurrentSuperuser вот так
 ) -> UsersPublic:
     """All users, only for superusers."""
     users = await UserCRUD.get_all(session, skip=skip, limit=limit)
@@ -71,6 +81,8 @@ async def create_user(user: UserCreate, session: SessionDep) -> Any:
         db_user = await UserCRUD.create(session, user)
     except UserAlreadyExists:
         raise HTTPException(**UserAlreadyExistsException().dict())
+    except RoleNotFound:
+        raise HTTPException(**RoleNotFoundException().dict())
     if settings.emails_enabled and user.email != settings.EMAIL_TEST_USER:
         email_data = generate_new_account_email(
             user.email, user.username, user.password
@@ -94,15 +106,15 @@ async def create_user(user: UserCreate, session: SessionDep) -> Any:
 async def update_user_me(
     current_user: CurrentUser, user_update: UserUpdateMe, session: SessionDep
 ) -> Any:
-    if user_update.email:
-        if await UserCRUD.get_by_email(session, user_update.email):
-            raise HTTPException(**UserAlreadyExistsException().dict())
-    if user_update.username:
-        if await UserCRUD.get_by_username(session, user_update.username):
-            raise HTTPException(**UserAlreadyExistsException().dict())
-    return await UserCRUD.update(
-        db_user=current_user, user_in=user_update, session=session
-    )
+    try:
+        user = await UserCRUD.update(
+            db_user=current_user, user_in=user_update, session=session
+        )
+    except UserAlreadyExists:
+        raise HTTPException(**UserAlreadyExistsException().dict())
+    except RoleNotFound:
+        raise HTTPException(**RoleNotFoundException().dict())
+    return user
 
 
 @router.patch("/me/password", response_model=Message)
@@ -122,3 +134,41 @@ async def update_password_me(
     session.add(current_user)
     await session.commit()
     return Message(message=constants.PASSWORD_UPDATED_SUCCESSFULLY)
+
+
+@router.delete("/me", response_model=Message)
+async def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
+    if current_user.is_superuser:
+        raise HTTPException(**exceptions.SuperuserDeleteException().dict())
+    await UserCRUD.delete(session, current_user.id)
+    return Message(constants.USER_DELETED_SUCCESSFULLY)
+
+
+@router.post("/signup", response_model=UserPublic)
+async def register_user(session: SessionDep, user_in: UserRegister) -> Any:
+    """
+    Create new user.
+    """
+    try:
+        user = await UserCRUD.create(session, user_in)
+    except UserAlreadyExists:
+        raise HTTPException(**UserAlreadyExistsException().dict())
+    return user
+
+
+@router.get(
+    "/{user_id}",
+    response_model=UserPublic,
+    dependencies=[Depends(get_current_active_superuser)],
+)
+async def read_user_by_id(
+    user_id: UUID,
+    session: SessionDep,
+) -> Any:
+    """
+    Get a specific user by id.
+    """
+    user = await UserCRUD.get(session, "id", user_id)
+    if not user:
+        raise HTTPException(**UserNotFoundException().dict())
+    return user
