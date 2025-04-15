@@ -12,6 +12,7 @@ from src.models import Message
 from src.users import constants
 from src.users import exceptions
 from src.users.dependencies import (
+    CurrentSuperuser,
     CurrentUser,
     get_current_active_superuser,
     get_current_active_user,
@@ -31,6 +32,7 @@ from src.users.schemas import (
     UserCreate,
     UserPublic,
     UserRegister,
+    UserUpdate,
     UserUpdateMe,
     UsersPublic,
 )
@@ -68,6 +70,24 @@ async def read_user_me(
     return current_user
 
 
+@router.get(
+    "/{user_id}",
+    response_model=UserPublic,
+    dependencies=[Depends(get_current_active_superuser)],
+)
+async def read_user_by_id(
+    user_id: UUID,
+    session: SessionDep,
+) -> Any:
+    """
+    Get a specific user by id.
+    """
+    user = await UserCRUD.get(session, "id", user_id)
+    if not user:
+        raise HTTPException(**UserNotFoundException().dict())
+    return user
+
+
 @router.post(
     "/", dependencies=[Depends(get_current_active_superuser)], response_model=UserPublic
 )
@@ -102,6 +122,43 @@ async def create_user(user: UserCreate, session: SessionDep) -> Any:
     return db_user
 
 
+@router.post("/signup", response_model=UserPublic)
+async def register_user(session: SessionDep, user_in: UserRegister) -> Any:
+    """
+    Create new user.
+    """
+    try:
+        user = await UserCRUD.create(session, user_in)
+    except UserAlreadyExists:
+        raise HTTPException(**UserAlreadyExistsException().dict())
+    return user
+
+
+@router.patch(
+    "/{user_id}",
+    dependencies=[Depends(get_current_active_superuser)],
+    response_model=UserPublic,
+)
+async def update_user(
+    session: SessionDep,
+    user_id: UUID,
+    user_in: UserUpdate,
+) -> Any:
+    """
+    Update a user, only for superusers.
+    """
+    user = await UserCRUD.get(session, "id", user_id)
+    if not user:
+        raise HTTPException(**UserNotFoundException().dict())
+    try:
+        user = await UserCRUD.update(db_user=user, user_in=user_in, session=session)
+    except UserAlreadyExists:
+        raise HTTPException(**UserAlreadyExistsException().dict())
+    except RoleNotFound:
+        raise HTTPException(**RoleNotFoundException().dict())
+    return user
+
+
 @router.patch("/me", response_model=UserPublic)
 async def update_user_me(
     current_user: CurrentUser, user_update: UserUpdateMe, session: SessionDep
@@ -119,7 +176,7 @@ async def update_user_me(
 
 @router.patch("/me/password", response_model=Message)
 async def update_password_me(
-    *, session: SessionDep, body: UpdatePassword, current_user: CurrentUser
+    session: SessionDep, body: UpdatePassword, current_user: CurrentUser
 ) -> Any:
     """
     Update own password.
@@ -144,31 +201,18 @@ async def delete_user_me(session: SessionDep, current_user: CurrentUser) -> Any:
     return Message(constants.USER_DELETED_SUCCESSFULLY)
 
 
-@router.post("/signup", response_model=UserPublic)
-async def register_user(session: SessionDep, user_in: UserRegister) -> Any:
-    """
-    Create new user.
-    """
-    try:
-        user = await UserCRUD.create(session, user_in)
-    except UserAlreadyExists:
-        raise HTTPException(**UserAlreadyExistsException().dict())
-    return user
-
-
-@router.get(
+@router.delete(
     "/{user_id}",
-    response_model=UserPublic,
-    dependencies=[Depends(get_current_active_superuser)],
+    response_model=Message,
 )
-async def read_user_by_id(
-    user_id: UUID,
-    session: SessionDep,
+async def delete_user(
+    session: SessionDep, user_id: UUID, current_superuser: CurrentSuperuser
 ) -> Any:
-    """
-    Get a specific user by id.
-    """
+    """Delete a user, only for superusers."""
     user = await UserCRUD.get(session, "id", user_id)
     if not user:
         raise HTTPException(**UserNotFoundException().dict())
-    return user
+    if current_superuser.id == user_id:
+        raise HTTPException(**exceptions.SuperuserDeleteException().dict())
+    await UserCRUD.delete(session, user_id)
+    return Message(message=constants.USER_DELETED_SUCCESSFULLY)

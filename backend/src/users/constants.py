@@ -16,5 +16,5 @@ INVALID_PASSWORD = "Invalid password"  # pragma: allowlist secret
 INCORRECT_PASSWORD = (
     "New password cannot be the same as the current one"  # pragma: allowlist secret
 )
-CANNOT_DELETE_SUPERUSER = "Superuser cannot be deleted"
+CANNOT_DELETE_SUPERUSER = "Super users are not allowed to delete themselves"
 ROLE_NOT_FOUND = "Role not found"
