@@ -1,24 +1,17 @@
 import logging
 from typing import Any
-from sqlmodel import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.config import settings
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
 from src.auth.service import get_password_hash
+from src.config import settings
 from src.db import SessionDep
 from src.models import get_list
 from src.users.constants import UserRolesEnum
 from src.users.exceptions import RoleNotFound, UserAlreadyExists
-from src.users.models import Role, User, UserCRUDModel, RoleCRUDModel
-from src.users.schemas import (
-    RoleCreate,
-    RoleBase,
-    UserCreate,
-    UserRegister,
-    UserUpdate,
-    UserUpdateMe,
-)
-
+from src.users.models import Role, RoleCRUDModel, User, UserCRUDModel
+from src.users.schemas import RoleBase, RoleCreate, UserCreate, UserRegister, UserUpdate, UserUpdateMe
 
 logger = logging.getLogger(__name__)
 
@@ -27,41 +20,28 @@ class UserCRUD:
     crud = UserCRUDModel
 
     @classmethod
-    async def create(
-        cls, session: AsyncSession, user_create: UserCreate | UserRegister
-    ) -> User:
+    async def create(cls, session: AsyncSession, user_create: UserCreate | UserRegister) -> User:
         if await cls.crud.get(session, "email", user_create.email):
             raise UserAlreadyExists(
                 f"User with email {user_create.email} already exists"  # TODO: залогировать все подобные?
             )
         if await cls.crud.get(session, "username", user_create.username):
-            raise UserAlreadyExists(
-                f"User with username {user_create.username} already exists"
-            )
+            raise UserAlreadyExists(f"User with username {user_create.username} already exists")
         if getattr(user_create, "role_id", None) is None:
-            user_create = UserCreate.model_validate(
-                user_create, update={"role_id": None}
-            )
+            user_create = UserCreate.model_validate(user_create, update={"role_id": None})
         if user_create.role_id is not None:
             if await RoleCRUD.get(session, "id", user_create.role_id) is None:
                 raise RoleNotFound(f"Role with id {user_create.role_id} not found")
         if user_create.role_id is None:
-            user_create.role_id = (
-                await RoleCRUD.get(session, "name", UserRolesEnum.user.name)
-            ).id
-        db_obj = User.model_validate(
-            user_create,
-            update={"hashed_password": get_password_hash(user_create.password)},
-        )
+            user_create.role_id = (await RoleCRUD.get(session, "name", UserRolesEnum.user.name)).id
+        db_obj = User.model_validate(user_create, update={"hashed_password": get_password_hash(user_create.password)})
         session.add(db_obj)
         await session.commit()
         await session.refresh(db_obj)
         return db_obj
 
     @classmethod
-    async def update(
-        cls, db_user: User, user_in: UserUpdateMe | UserUpdate, session: AsyncSession
-    ) -> Any:
+    async def update(cls, db_user: User, user_in: UserUpdateMe | UserUpdate, session: AsyncSession) -> Any:
         user_data = user_in.model_dump(exclude_unset=True)
         extra_data = {}
         if "password" in user_data:  # хэшируем пароль
@@ -75,15 +55,11 @@ class UserCRUD:
             extra_data["role_id"] = user_data["role_id"]
         if "email" in user_data and user_data["email"] != db_user.email:
             if await cls.crud.get(session, "email", user_data["email"]):
-                raise UserAlreadyExists(
-                    f"User with email {user_data['email']} already exists"
-                )
+                raise UserAlreadyExists(f"User with email {user_data['email']} already exists")
             extra_data["email"] = user_data["email"]
         if "username" in user_data and user_data["username"] != db_user.username:
             if await cls.crud.get(session, "username", user_data["username"]):
-                raise UserAlreadyExists(
-                    f"User with username {user_data['username']} already exists"
-                )
+                raise UserAlreadyExists(f"User with username {user_data['username']} already exists")
             extra_data["username"] = user_data["username"]
         db_user.sqlmodel_update(user_data, update=extra_data)
         session.add(db_user)
@@ -100,12 +76,8 @@ class UserCRUD:
         return await cls.crud.get(session, "username", username)  # уникальное поле
 
     @classmethod
-    async def get_all(
-        cls, session: AsyncSession, skip: int = 0, limit: int = 100
-    ) -> list[User]:
-        return await get_list(
-            session, select(User).where(User.is_active).offset(skip).limit(limit)
-        )
+    async def get_all(cls, session: AsyncSession, skip: int = 0, limit: int = 100) -> list[User]:
+        return await get_list(session, select(User).where(User.is_active).offset(skip).limit(limit))
 
     @classmethod
     async def get_by_email(cls, session: AsyncSession, email: str) -> User:
@@ -132,9 +104,7 @@ class RoleCRUD:
         await cls.crud.delete(session, "id", role_id)
 
     @classmethod
-    async def get_or_create(
-        cls, session: AsyncSession, role_create: RoleCreate
-    ) -> RoleBase:
+    async def get_or_create(cls, session: AsyncSession, role_create: RoleCreate) -> RoleBase:
         role = await cls.crud.get(session, "name", role_create.name)
         if role:
             return role
@@ -142,13 +112,9 @@ class RoleCRUD:
 
 
 async def create_superuser(session: AsyncSession):  # наглядно get_or_create и create
-    role_user = await RoleCRUD.get_or_create(
-        session, RoleCreate(name=UserRolesEnum.user)
-    )
+    role_user = await RoleCRUD.get_or_create(session, RoleCreate(name=UserRolesEnum.user))
     logger.info(f"User role created: {role_user}")
-    role_admin = await RoleCRUD.get_or_create(
-        session, RoleCreate(name=UserRolesEnum.admin)
-    )
+    role_admin = await RoleCRUD.get_or_create(session, RoleCreate(name=UserRolesEnum.admin))
     logger.info(f"Admin role created: {role_admin}")
     try:
         user = await UserCRUD.create(
