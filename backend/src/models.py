@@ -1,22 +1,19 @@
-from typing import Any, Type, TypeVar
+from typing import Any, TypeVar
 
-from sqlmodel import SQLModel, delete, func, select, update
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
-
+from sqlmodel import SQLModel, delete, func, select, update
 
 Table = TypeVar("Table", bound=SQLModel)
 
 
 class CRUDBase:
-    table: Type[Table]
+    table: type[Table]
 
     @classmethod
     async def create(cls, session: AsyncSession, **kwargs) -> Table:
-        created_fields = {
-            k: v for k, v in kwargs.items() if getattr(cls.table, k, None) is not None
-        }
+        created_fields = {k: v for k, v in kwargs.items() if getattr(cls.table, k, None) is not None}
         instance = cls.table(**created_fields)
         session.add(instance)
         await session.commit()
@@ -29,17 +26,9 @@ class CRUDBase:
         return await exactly_one(session, query)
 
     @classmethod
-    async def update(
-        cls, session: AsyncSession, field: str, value: Any, **kwargs
-    ) -> None:
-        updated_fields = {
-            k: v for k, v in kwargs.items() if getattr(cls.table, k, None) is not None
-        }
-        query = (
-            update(cls.table)
-            .where(getattr(cls.table, field) == value)
-            .values(**updated_fields)
-        )
+    async def update(cls, session: AsyncSession, field: str, value: Any, **kwargs) -> None:
+        updated_fields = {k: v for k, v in kwargs.items() if getattr(cls.table, k, None) is not None}
+        query = update(cls.table).where(getattr(cls.table, field) == value).values(**updated_fields)
         await session.execute(query)
         await session.commit()
 
@@ -62,11 +51,7 @@ async def exactly_one(session: AsyncSession, query) -> Table | None:
 
 
 async def get_total_rows(session: AsyncSession, query: Select) -> int:
-    return (
-        (await session.execute(select(func.count()).select_from(query.subquery())))
-        .scalars()
-        .one()
-    )
+    return (await session.execute(select(func.count()).select_from(query.subquery()))).scalars().one()
 
 
 # Generic message

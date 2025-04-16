@@ -19,9 +19,7 @@ class EmailData:
 
 
 def render_email_template(*, template_name: str, context: dict[str, Any]) -> str:
-    template_str = (
-        Path(__file__).parent / "email-templates" / "build" / template_name
-    ).read_text()
+    template_str = (Path(__file__).parent / "email-templates" / "build" / template_name).read_text()
     html_content = Template(template_str).render(context)
     return html_content
 
@@ -47,9 +45,7 @@ def send_email(
         smtp_options["user"] = settings.SMTP_USER
     if settings.SMTP_PASSWORD:
         smtp_options["password"] = settings.SMTP_PASSWORD
-    response = message.send(
-        to=email_to, smtp=smtp_options
-    )  # TODO: после подключения селери вынести в таску
+    response = message.send(to=email_to, smtp=smtp_options)  # TODO: после подключения селери вынести в таску
     logger.info(f"send email result: {response}")
 
 

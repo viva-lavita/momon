@@ -1,14 +1,13 @@
 from datetime import timedelta
 from typing import Annotated, Any
-from fastapi import APIRouter, Depends, status
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi import HTTPException
 
 from src.auth import constants, exceptions
-from src.auth.dependencies import TokenDep
-from src.db import SessionDep
-from src.schemas import Message
+from src.auth.dependencies import TokenDep, authenticate_user
+from src.auth.schemas import NewPassword, Token
 from src.auth.service import (
     create_access_token,
     generate_password_reset_token,
@@ -17,13 +16,12 @@ from src.auth.service import (
     verify_password_reset_token,
 )
 from src.config import settings
-from src.auth.schemas import NewPassword, Token
-from src.auth.dependencies import authenticate_user
+from src.db import SessionDep
+from src.schemas import Message
 from src.users.dependencies import CurrentUser, get_current_active_superuser
 from src.users.schemas import UserPublic
 from src.users.service import UserCRUD
 from src.utils import send_email
-
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -37,15 +35,9 @@ async def login_for_access_token(
     if not user:
         raise HTTPException(**exceptions.IncorrectUsernameOrPasswordException().dict())
     if not user.is_active:
-        raise HTTPException(
-            **exceptions.InactiveUserException(
-                status_code=status.HTTP_403_FORBIDDEN
-            ).dict()
-        )
+        raise HTTPException(**exceptions.InactiveUserException(status_code=status.HTTP_403_FORBIDDEN).dict())
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
+    access_token = create_access_token(data={"sub": user.username}, expires_delta=access_token_expires)
     return Token(access_token=access_token, token_type="bearer")
 
 
@@ -64,9 +56,7 @@ async def recover_password(email: str, session: SessionDep):
     if not user:
         raise HTTPException(**exceptions.UserNotFoundException().dict())
     password_reset_token = generate_password_reset_token(email=email)
-    email_data = generate_reset_password_email(
-        email_to=user.email, email=email, token=password_reset_token
-    )
+    email_data = generate_reset_password_email(email_to=user.email, email=email, token=password_reset_token)
     send_email(
         email_to=user.email,
         subject=email_data.subject,
@@ -87,11 +77,7 @@ async def reset_password(session: SessionDep, body: NewPassword) -> Message:
     if not user:
         raise HTTPException(**exceptions.UserNotFoundException().dict())
     elif not user.is_active:
-        raise HTTPException(
-            **exceptions.InactiveUserException(
-                status_code=status.HTTP_400_BAD_REQUEST
-            ).dict()
-        )
+        raise HTTPException(**exceptions.InactiveUserException(status_code=status.HTTP_400_BAD_REQUEST).dict())
     hashed_password = get_password_hash(password=body.new_password)
     user.hashed_password = hashed_password
     session.add(user)
@@ -113,10 +99,6 @@ async def recover_password_html_content(email: str, session: SessionDep) -> Any:
     if not user:
         raise HTTPException(**exceptions.UserNotFoundException().dict())
     password_reset_token = generate_password_reset_token(email=email)
-    email_data = generate_reset_password_email(
-        email_to=user.email, email=email, token=password_reset_token
-    )
+    email_data = generate_reset_password_email(email_to=user.email, email=email, token=password_reset_token)
 
-    return HTMLResponse(
-        content=email_data.html_content, headers={"subject:": email_data.subject}
-    )
+    return HTMLResponse(content=email_data.html_content, headers={"subject:": email_data.subject})

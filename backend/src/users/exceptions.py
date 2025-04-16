@@ -26,9 +26,7 @@ class UserAlreadyExistsException(HTTPResponseException):
 
 class InvalidPasswordException(HTTPResponseException):
     def __init__(self):
-        super().__init__(
-            detail=constants.INVALID_PASSWORD, status_code=status.HTTP_400_BAD_REQUEST
-        )
+        super().__init__(detail=constants.INVALID_PASSWORD, status_code=status.HTTP_400_BAD_REQUEST)
 
 
 class IncorrectPasswordException(HTTPResponseException):
@@ -49,6 +47,4 @@ class SuperuserDeleteException(HTTPResponseException):
 
 class RoleNotFoundException(HTTPResponseException):
     def __init__(self):
-        super().__init__(
-            detail=constants.ROLE_NOT_FOUND, status_code=status.HTTP_400_BAD_REQUEST
-        )
+        super().__init__(detail=constants.ROLE_NOT_FOUND, status_code=status.HTTP_400_BAD_REQUEST)

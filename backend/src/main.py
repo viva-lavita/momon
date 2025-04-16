@@ -1,10 +1,11 @@
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
-from src.config import settings, app_configs
+from src.config import app_configs, settings
 from src.initial_data import init
 from src.router import router
 
@@ -14,7 +15,7 @@ def custom_generate_unique_id(route: APIRoute) -> str:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # добавить редис, селери и пр.
     if settings.ENVIRONMENT.is_local:
         await init()
