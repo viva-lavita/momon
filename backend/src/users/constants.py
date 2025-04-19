@@ -14,3 +14,4 @@ INVALID_PASSWORD = "Invalid password"  # pragma: allowlist secret
 INCORRECT_PASSWORD = "New password cannot be the same as the current one"
 CANNOT_DELETE_SUPERUSER = "Super users are not allowed to delete themselves"
 ROLE_NOT_FOUND = "Role not found"
+NOT_ENOUGH_PRIVILEGES = "The user doesn't have enough privileges"

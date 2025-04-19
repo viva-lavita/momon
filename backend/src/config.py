@@ -95,7 +95,7 @@ class AppSettings(*settings):
     SECRET_KEY: str = secrets.token_urlsafe(32)
     ENVIRONMENT: Environment = Environment.LOCAL
     model_config = SettingsConfigDict(
-        env_file="../.env",
+        env_file=("../.env", ".test.env"),
         env_file_encoding="utf-8",
         env_ignore_empty=True,
         extra="ignore",

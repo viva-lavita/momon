@@ -48,3 +48,8 @@ class SuperuserDeleteException(HTTPResponseException):
 class RoleNotFoundException(HTTPResponseException):
     def __init__(self):
         super().__init__(detail=constants.ROLE_NOT_FOUND, status_code=status.HTTP_400_BAD_REQUEST)
+
+
+class NotEnoughPrivilegesException(HTTPResponseException):
+    def __init__(self):
+        super().__init__(detail=constants.NOT_ENOUGH_PRIVILEGES, status_code=status.HTTP_403_FORBIDDEN)

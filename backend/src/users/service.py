@@ -104,18 +104,20 @@ class RoleCRUD:
         await cls.crud.delete(session, "id", role_id)
 
     @classmethod
-    async def get_or_create(cls, session: AsyncSession, role_create: RoleCreate) -> RoleBase:
+    async def get_or_create(cls, session: AsyncSession, role_create: RoleCreate) -> RoleBase | tuple[RoleBase, bool]:
         role = await cls.crud.get(session, "name", role_create.name)
         if role:
-            return role
-        return await cls.crud.create(session, **role_create.model_dump())
+            return role, False
+        return (await cls.crud.create(session, **role_create.model_dump()), True)
 
 
 async def create_superuser(session: AsyncSession):  # наглядно get_or_create и create
-    role_user = await RoleCRUD.get_or_create(session, RoleCreate(name=UserRolesEnum.user))
-    logger.info(f"User role created: {role_user}")
-    role_admin = await RoleCRUD.get_or_create(session, RoleCreate(name=UserRolesEnum.admin))
-    logger.info(f"Admin role created: {role_admin}")
+    role_user, created = await RoleCRUD.get_or_create(session, RoleCreate(name=UserRolesEnum.user))
+    if created:
+        logger.info(f"User role created: {role_user}")
+    role_admin, created = await RoleCRUD.get_or_create(session, RoleCreate(name=UserRolesEnum.admin))
+    if created:
+        logger.info(f"Admin role created: {role_admin}")
     try:
         user = await UserCRUD.create(
             session,

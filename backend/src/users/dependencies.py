@@ -9,6 +9,7 @@ from src.auth.schemas import TokenData
 from src.config import settings
 from src.db import SessionDep
 from src.users import constants
+from src.users.exceptions import NotEnoughPrivilegesException
 from src.users.models import User
 from src.users.schemas import UserPublic
 from src.users.service import get_user
@@ -43,10 +44,7 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 
 def get_current_active_superuser(current_user: CurrentUser) -> User:
     if not current_user.is_superuser:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="The user doesn't have enough privileges",
-        )
+        raise HTTPException(**NotEnoughPrivilegesException().dict())
     return current_user
 
 

@@ -23,7 +23,6 @@ engine = create_async_engine(
 async def init_db(session: AsyncSession):
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-        # сюда добавить создание суперюзера
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None, None]:
