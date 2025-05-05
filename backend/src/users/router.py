@@ -3,6 +3,7 @@ from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import select
 
 from src.auth.exceptions import UserNotFoundException
 from src.auth.service import generate_new_account_email, get_password_hash, verify_password
@@ -10,7 +11,7 @@ from src.config import settings
 from src.constants import EMAILS_DISABLED
 from src.db import SessionDep
 from src.exceptions import EmailsDisabledException
-from src.models import Message
+from src.models import Message, get_test_list
 from src.users import constants, exceptions
 from src.users.dependencies import CurrentSuperuser, CurrentUser, get_current_active_superuser, get_current_active_user
 from src.users.exceptions import (
@@ -21,6 +22,7 @@ from src.users.exceptions import (
     UserAlreadyExists,
     UserAlreadyExistsException,
 )
+from src.users.models import User
 from src.users.schemas import (
     UpdatePassword,
     UserCreate,
@@ -35,6 +37,34 @@ from src.utils import send_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get(
+    "/test",
+    response_model=UsersPublic,
+)
+async def test_get_users(
+    skip: int = 0,
+    limit: int = 100,  # current_superuser: CurrentSuperuser вот так
+) -> UsersPublic:
+    """
+    Тесирование без session переданной явно.
+
+    Передается под капотом на базовом методе.
+    """
+    users = await get_test_list(select(User).where(User.is_active))
+    return UsersPublic(data=[UserPublic(**user.model_dump()) for user in users], count=len(users))
+
+
+@router.get("/test/{user_id}", response_model=UserPublic)
+async def test_read_user_by_id(user_id: UUID) -> Any:
+    """
+    Get a specific user by id.
+    """
+    user = await UserCRUD.get_test("id", user_id)
+    if not user:
+        raise HTTPException(**UserNotFoundException().dict())
+    return user
 
 
 @router.get(

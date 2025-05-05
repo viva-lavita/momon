@@ -20,6 +20,10 @@ class UserCRUD:
     crud = UserCRUDModel
 
     @classmethod
+    async def get_test(cls, field: str, value: Any) -> User:
+        return await cls.crud.get_test(field, value)
+
+    @classmethod
     async def create(cls, session: AsyncSession, user_create: UserCreate | UserRegister) -> User:
         if await cls.crud.get(session, "email", user_create.email):
             raise UserAlreadyExists(

@@ -53,13 +53,15 @@ def connection(method):
     :return: обернутая функция
 
     Пример использования:
+    ```python
     @connection
     async def get_users(session):
         return await session.execute(select(User))
+    ```
     """
 
     async def wrapper(*args, **kwargs):
-        async with async_sessionmaker() as session:
+        async with async_sessionmaker(engine, expire_on_commit=False)() as session:
             try:
                 # Явно не открываем транзакции, так как они уже есть в контексте
                 return await method(*args, session=session, **kwargs)

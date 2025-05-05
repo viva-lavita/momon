@@ -5,11 +5,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import Select
 from sqlmodel import SQLModel, delete, func, select, update
 
+from src.db import connection
+
 Table = TypeVar("Table", bound=SQLModel)
 
 
 class CRUDBase:
     table: type[Table]
+
+    @classmethod
+    @connection
+    async def get_test(cls, field: str, value: Any, session: AsyncSession = None) -> Table | None:
+        return (
+            (await session.execute(select(cls.table).where(getattr(cls.table, field) == value)))
+            .unique()
+            .scalars()
+            .one()
+        )
 
     @classmethod
     async def create(cls, session: AsyncSession, **kwargs) -> Table:
@@ -57,3 +69,8 @@ async def get_total_rows(session: AsyncSession, query: Select) -> int:
 # Generic message
 class Message(SQLModel):
     message: str
+
+
+@connection
+async def get_test_list(query: Select, session: AsyncSession = None) -> list[Table]:
+    return (await session.execute(query)).unique().scalars().all()

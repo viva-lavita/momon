@@ -20,3 +20,43 @@
 Прежде чем продолжить, убедитесь, что расширение MJML установлено в вашем VS Code.
 
 После установки расширения MJML вы можете создать новый шаблон электронной почты в каталоге src. После создания нового шаблона электронной почты и открытия файла .mjml в редакторе, откройте палитру команд с помощью Ctrl+Shift+P и найдите MJML: Export to HTML. Это преобразует файл .mjml в файл .html, и теперь вы можете сохранить его в директории сборки.
+
+
+#### Полезные команды и информация:
+
+Запуск локально:
+
+```bash
+uv run src/main.py
+```
+
+openapi по адресу:
+
+```str
+http://127.0.0.1:8000/api/v1/docs
+```
+
+Дебаг включается-выключается в зависимости от режима см. последние строки в src/config.py
+Варианты: LOCAL, STAGING, PRODUCTION, TESTING.
+
+Используется одели данных sqlmodel(от создателя fastapi), поэтому отличие моделей базы данных от схем пайдентик в параметре table=True. Конкретно тут также используется наследование моделей бд от схем, пример:
+
+```python
+# пайдентик схема
+class UserBase(SQLModel):
+    username: str = Field(unique=True, index=True, max_length=255)
+    email: EmailStr = Field(unique=True, index=True, max_length=255)
+    is_active: bool = True
+    is_superuser: bool = False
+    full_name: str | None = Field(default=None, max_length=255)
+
+
+# модель бд
+class User(UserBase, AsyncAttrs, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    hashed_password: str
+    role_id: uuid.UUID = Field(foreign_key="role.id", nullable=False, ondelete="RESTRICT")
+    role: "Role" = Relationship(back_populates="users", sa_relationship_kwargs={"lazy": "selectin"})
+```
+
+Т.е. наследуем от схемы, пишем table=True и расширяем.
