@@ -13,15 +13,16 @@ Table = TypeVar("Table", bound=SQLModel)
 class CRUDBase:
     table: type[Table]
 
-    @classmethod
-    @connection
-    async def get_test(cls, field: str, value: Any, session: AsyncSession = None) -> Table | None:
-        return (
-            (await session.execute(select(cls.table).where(getattr(cls.table, field) == value)))
-            .unique()
-            .scalars()
-            .one()
-        )
+    # @classmethod
+    # @connection
+    # async def get_test(cls, field: str, value: Any, session: AsyncSession = None) -> Table | None:
+    #     """Тестирование с session переданной только на уровне репозитория."""
+    #     return (
+    #         (await session.execute(select(cls.table).where(getattr(cls.table, field) == value)))
+    #         .unique()
+    #         .scalars()
+    #         .one()
+    #     )
 
     @classmethod
     async def create(cls, session: AsyncSession, **kwargs) -> Table:

@@ -19,9 +19,10 @@ logger = logging.getLogger(__name__)
 class UserCRUD:
     crud = UserCRUDModel
 
-    @classmethod
-    async def get_test(cls, field: str, value: Any) -> User:
-        return await cls.crud.get_test(field, value)
+    # @classmethod
+    # async def get_test(cls, field: str, value: Any) -> User:
+    #     """Тестирование без session в сервисном слое."""
+    #     return await cls.crud.get_test(field, value)
 
     @classmethod
     async def create(cls, session: AsyncSession, user_create: UserCreate | UserRegister) -> User:
